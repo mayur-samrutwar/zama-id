@@ -9,7 +9,7 @@ export default function Card({ children, className }: CardProps) {
   return (
     <div
       className={
-        "rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-100/60 ring-1 ring-transparent transition-shadow " +
+        "rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_10px_rgba(16,24,40,0.04)] ring-1 ring-transparent transition-shadow " +
         (className ?? "")
       }
     >
@@ -24,9 +24,9 @@ export function CardBody({ children, className }: { children: ReactNode; classNa
 
 export function CardHeader({ title, description, right }: { title: string; description?: string; right?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-zinc-200 p-5 sm:p-7">
+    <div className="flex items-start justify-between gap-4 border-b border-zinc-200 p-6 sm:p-8">
       <div>
-        <h3 className="text-base font-semibold tracking-tight text-zinc-900">{title}</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-zinc-900">{title}</h3>
         {description ? <p className="mt-1 text-sm text-zinc-600">{description}</p> : null}
       </div>
       {right}
