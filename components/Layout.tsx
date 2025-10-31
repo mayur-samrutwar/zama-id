@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import WalletButton from "./WalletButton";
 
 type LayoutProps = {
   children: ReactNode;
@@ -34,12 +35,7 @@ export default function Layout({ children }: LayoutProps) {
               <NavLink href="/profile" label="Profile" />
             </nav>
             <div className="flex items-center gap-2">
-              <Link
-                href="/verify"
-                className="inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-              >
-                Verify
-              </Link>
+              <WalletButton />
             </div>
           </div>
         </div>
