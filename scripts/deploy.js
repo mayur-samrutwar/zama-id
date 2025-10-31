@@ -1,8 +1,7 @@
-import hre from "hardhat";
-import { ethers } from "hardhat";
-
-import fs from "fs";
-import path from "path";
+const hre = require("hardhat");
+const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
   const [deployer] = await ethers.getSigners();

@@ -1,6 +1,13 @@
+"use client";
+
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import AttestationCard from "@/components/AttestationCard";
+import { useAccount, useReadContract } from "wagmi";
+import { useCompanyAttestations, useCompanySchemas } from "@/hooks/useContract";
+import { useState, useEffect } from "react";
+import { formatAddress } from "@/utils/format";
+import { DECENTRALIZED_ID_CONFIG } from "@/config/contract";
 
 type IssuedAttestation = {
   id: string;
@@ -11,50 +18,112 @@ type IssuedAttestation = {
   recipient: string;
   claimKey?: string;
   claimValue?: string;
+  schemaId?: bigint;
 };
 
-const issuedData: IssuedAttestation[] = [
-  { id: "att-101", type: "Age", issuer: "Acme Corp", issuedAt: "2025-10-20", status: "valid", recipient: "0x1234...5678", claimKey: "age", claimValue: "25" },
-  { id: "att-102", type: "KYC", issuer: "Acme Corp", issuedAt: "2025-10-18", status: "valid", recipient: "0xabcd...efgh", claimKey: "verified", claimValue: "true" },
-  { id: "att-103", type: "Email", issuer: "Acme Corp", issuedAt: "2025-10-15", status: "valid", recipient: "0x9876...5432", claimKey: "email", claimValue: "user@example.com" },
-  { id: "att-104", type: "Age", issuer: "Acme Corp", issuedAt: "2025-10-10", status: "revoked", recipient: "0x1111...2222", claimKey: "age", claimValue: "18" },
-];
-
 export default function IssuedAttestationsPage() {
+  const { address, isConnected } = useAccount();
+  const { data: attestationsData, isLoading } = useCompanyAttestations(address);
+  const { data: schemasData } = useCompanySchemas(address);
+  const { data: schemaIds } = useReadContract({
+    ...DECENTRALIZED_ID_CONFIG,
+    functionName: "companySchemas",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+  const [attestations, setAttestations] = useState<IssuedAttestation[]>([]);
+  const [schemas, setSchemas] = useState<Record<string, string>>({});
+
+  // Build schema map - match schema IDs with schema data
+  useEffect(() => {
+    if (schemasData && Array.isArray(schemasData) && schemaIds && Array.isArray(schemaIds)) {
+      const schemaMap: Record<string, string> = {};
+      schemaIds.forEach((schemaId: bigint, index: number) => {
+        if (schemasData[index]) {
+          schemaMap[schemaId.toString()] = schemasData[index].name || "Unknown";
+        }
+      });
+      setSchemas(schemaMap);
+    }
+  }, [schemasData, schemaIds]);
+
+  // Format attestations
+  useEffect(() => {
+    if (attestationsData && Array.isArray(attestationsData)) {
+      const formatted = attestationsData.map((att: any, index: number) => {
+        // att.schemaId is a bigint/number from the contract
+        const schemaIdStr = att.schemaId?.toString() || "";
+        const schemaName = schemas[schemaIdStr] || `Schema ${schemaIdStr || "Unknown"}`;
+
+        let parsedData: any = {};
+        try {
+          parsedData = JSON.parse(att.data || "{}");
+        } catch {
+          parsedData = { raw: att.data };
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        const status: "valid" | "revoked" | "pending" = att.isRevoked
+          ? "revoked"
+          : att.expiresAt && BigInt(att.expiresAt) !== 0n && BigInt(att.expiresAt) < BigInt(now)
+          ? "pending"
+          : "valid";
+
+        return {
+          id: `att-${index}`,
+          type: schemaName,
+          issuer: formatAddress(att.issuer),
+          issuedAt: new Date(Number(att.issuedAt) * 1000).toISOString().split("T")[0],
+          status,
+          recipient: formatAddress(att.recipient),
+          claimKey: Object.keys(parsedData)[0] || "data",
+          claimValue: Object.values(parsedData)[0]?.toString() || att.data || "",
+          schemaId: att.schemaId,
+        };
+      });
+      setAttestations(formatted);
+    } else {
+      setAttestations([]);
+    }
+  }, [attestationsData, schemas]);
+
+  if (!isConnected) {
+    return (
+      <AppLayout>
+        <PageHeader title="Issued Attestations" subtitle="All attestations you've issued to users." />
+        <div className="flex items-center justify-center rounded-2xl border border-dashed border-zinc-300 p-16 text-sm text-zinc-600">
+          Please connect your wallet to view issued attestations
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <PageHeader title="Issued Attestations" subtitle="All attestations you've issued to users." />
+        <div className="flex items-center justify-center rounded-2xl border border-dashed border-zinc-300 p-16 text-sm text-zinc-600">
+          Loading attestations...
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
-      <PageHeader
-        title="Issued Attestations"
-        subtitle="All attestations you've issued to users."
-      />
+      <PageHeader title="Issued Attestations" subtitle="All attestations you've issued to users." />
 
-      {issuedData.length === 0 ? (
+      {attestations.length === 0 ? (
         <div className="flex items-center justify-center rounded-2xl border border-dashed border-zinc-300 p-16 text-sm text-zinc-600">
           No attestations issued yet
         </div>
       ) : (
         <div>
           <div className="mb-6 flex items-center justify-between">
-            <div className="text-sm text-zinc-600">
-              Showing {issuedData.length} attestations
-            </div>
-            <div className="flex gap-2">
-              <select className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900">
-                <option>All Status</option>
-                <option>Valid</option>
-                <option>Pending</option>
-                <option>Revoked</option>
-              </select>
-              <select className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900">
-                <option>All Types</option>
-                <option>Age</option>
-                <option>KYC</option>
-                <option>Email</option>
-              </select>
-            </div>
+            <div className="text-sm text-zinc-600">Showing {attestations.length} attestations</div>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {issuedData.map((attestation) => (
+            {attestations.map((attestation) => (
               <div key={attestation.id}>
                 <AttestationCard
                   id={attestation.id}
@@ -65,9 +134,7 @@ export default function IssuedAttestationsPage() {
                   claimKey={attestation.claimKey}
                   claimValue={attestation.claimValue}
                 />
-                <div className="mt-2 text-xs text-zinc-500">
-                  To: {attestation.recipient}
-                </div>
+                <div className="mt-2 text-xs text-zinc-500">To: {attestation.recipient}</div>
               </div>
             ))}
           </div>

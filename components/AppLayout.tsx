@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactNode } from "react";
-import { LayoutDashboard, ShieldCheck, Inbox, Search, User, Search as SearchIcon, Building2, Users, FileCheck, PlusCircle } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, Inbox, Search, User, Search as SearchIcon, Building2, FileCheck, PlusCircle } from "lucide-react";
 import WalletButton from "./WalletButton";
 
 type AppLayoutProps = {
@@ -26,7 +26,6 @@ const companyNavItems: NavItem[] = [
   { href: "/app/company", label: "Company", icon: Building2 },
   { href: "/app/company/issue", label: "Issue Attestation", icon: PlusCircle },
   { href: "/app/company/issued", label: "Issued Attestations", icon: FileCheck },
-  { href: "/app/company/whitelist", label: "Whitelist", icon: Users },
 ];
 
 function NavLink({ href, label, icon: Icon, isActive }: NavItem & { isActive: boolean }) {

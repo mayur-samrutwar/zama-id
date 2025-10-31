@@ -37,6 +37,16 @@ contract DecentralizedID {
     // Schema ID => Attestation IDs issued for this schema
     mapping(uint256 => uint256[]) public schemaAttestations;
     
+    // Request ID => Request Info
+    mapping(uint256 => Request) public requests;
+    uint256 public nextRequestId;
+    
+    // User address => Request IDs they received
+    mapping(address => uint256[]) public userReceivedRequests;
+    
+    // Company address => Request IDs they created
+    mapping(address => uint256[]) public companyRequests;
+    
     // ==================== Structs ====================
     
     struct CompanyInfo {
@@ -65,6 +75,31 @@ contract DecentralizedID {
         string revocationReason; // Empty if not revoked
     }
     
+    enum RequestType {
+        Predicate, // e.g., age > 18
+        Direct     // e.g., get email field
+    }
+    
+    enum RequestStatus {
+        Pending,
+        Approved,
+        Rejected
+    }
+    
+    struct Request {
+        address requester; // Company making the request
+        address recipient; // User receiving the request
+        string purpose; // Purpose/description of the request
+        RequestType requestType; // Predicate or Direct
+        string claimKey; // Claim key to check (e.g., "age", "email")
+        string operator; // For predicate: ">", ">=", "==", etc. (empty for direct)
+        string value; // Value to compare against (empty for direct)
+        RequestStatus status;
+        string responseData; // Response if approved (empty if rejected)
+        uint256 createdAt;
+        uint256 respondedAt; // 0 if not responded yet
+    }
+    
     // ==================== Events ====================
     
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
@@ -88,6 +123,19 @@ contract DecentralizedID {
         address indexed issuer,
         string reason
     );
+    event RequestCreated(
+        uint256 indexed requestId,
+        address indexed requester,
+        address indexed recipient,
+        RequestType requestType,
+        string purpose
+    );
+    event RequestResponded(
+        uint256 indexed requestId,
+        address indexed recipient,
+        RequestStatus status,
+        string responseData
+    );
     
     // ==================== Modifiers ====================
     
@@ -107,10 +155,6 @@ contract DecentralizedID {
     modifier validSchema(uint256 schemaId) {
         require(schemaId < nextSchemaId, "DecentralizedID: Invalid schema ID");
         require(schemas[schemaId].isActive, "DecentralizedID: Schema not active");
-        require(
-            schemas[schemaId].company == msg.sender,
-            "DecentralizedID: Schema belongs to another company"
-        );
         _;
     }
     
@@ -128,6 +172,7 @@ contract DecentralizedID {
         admin = msg.sender;
         nextSchemaId = 1;
         nextAttestationId = 1;
+        nextRequestId = 1;
     }
     
     // ==================== Admin Functions ====================
@@ -229,7 +274,7 @@ contract DecentralizedID {
         string memory name,
         string memory description,
         string memory schemaDefinition
-    ) external onlyWhitelistedCompany returns (uint256 schemaId) {
+    ) external returns (uint256 schemaId) {
         require(bytes(name).length > 0, "DecentralizedID: Name cannot be empty");
         
         schemaId = nextSchemaId++;
@@ -244,6 +289,16 @@ contract DecentralizedID {
         });
         
         companySchemas[msg.sender].push(schemaId);
+        
+        // Auto-whitelist issuer when they create their first schema
+        if (!isWhitelistedCompany[msg.sender]) {
+            isWhitelistedCompany[msg.sender] = true;
+            companies[msg.sender] = CompanyInfo({
+                isActive: true,
+                addedAt: block.timestamp,
+                metadata: ""
+            });
+        }
         
         emit SchemaCreated(schemaId, msg.sender, name, description);
     }
@@ -275,14 +330,11 @@ contract DecentralizedID {
         uint256 schemaId,
         string memory data,
         uint256 expiresAt
-    ) external onlyWhitelistedCompany returns (uint256 attestationId) {
+    ) external returns (uint256 attestationId) {
         require(recipient != address(0), "DecentralizedID: Invalid recipient");
         require(schemaId < nextSchemaId, "DecentralizedID: Invalid schema ID");
         require(schemas[schemaId].isActive, "DecentralizedID: Schema not active");
-        require(
-            schemas[schemaId].company == msg.sender,
-            "DecentralizedID: Schema belongs to another company"
-        );
+        // Allow anyone to issue attestations using any active schema
         require(
             expiresAt == 0 || expiresAt > block.timestamp,
             "DecentralizedID: Invalid expiration time"
@@ -321,7 +373,7 @@ contract DecentralizedID {
         uint256[] memory schemaIds,
         string[] memory dataArray,
         uint256[] memory expiresAtArray
-    ) external onlyWhitelistedCompany returns (uint256[] memory attestationIds) {
+    ) external returns (uint256[] memory attestationIds) {
         require(
             recipients.length == schemaIds.length &&
             schemaIds.length == dataArray.length &&
@@ -337,7 +389,6 @@ contract DecentralizedID {
                 recipients[i] != address(0) &&
                 schemaIds[i] < nextSchemaId &&
                 schemas[schemaIds[i]].isActive &&
-                schemas[schemaIds[i]].company == msg.sender &&
                 (expiresAtArray[i] == 0 || expiresAtArray[i] > block.timestamp)
             ) {
                 uint256 attestationId = nextAttestationId++;
@@ -400,7 +451,7 @@ contract DecentralizedID {
     function batchRevokeAttestations(
         uint256[] memory attestationIds,
         string[] memory reasons
-    ) external onlyWhitelistedCompany {
+    ) external {
         require(
             attestationIds.length == reasons.length,
             "DecentralizedID: Arrays length mismatch"
@@ -419,6 +470,106 @@ contract DecentralizedID {
                 emit AttestationRevoked(attestationIds[i], msg.sender, reasons[i]);
             }
         }
+    }
+    
+    // ==================== Request Functions ====================
+    
+    /**
+     * @notice Create a request to a user (predicate or direct)
+     * @param recipient Address of the user
+     * @param purpose Purpose/description of the request
+     * @param requestType 0 for Predicate, 1 for Direct
+     * @param claimKey Claim key to check (e.g., "age", "email")
+     * @param operator Operator for predicate (">", ">=", "==", etc.) - empty for direct
+     * @param value Value to compare against - empty for direct
+     * @return requestId The ID of the newly created request
+     */
+    function createRequest(
+        address recipient,
+        string memory purpose,
+        RequestType requestType,
+        string memory claimKey,
+        string memory operator,
+        string memory value
+    ) external returns (uint256 requestId) {
+        require(recipient != address(0), "DecentralizedID: Invalid recipient");
+        require(bytes(claimKey).length > 0, "DecentralizedID: Claim key cannot be empty");
+        require(
+            requestType == RequestType.Direct || bytes(operator).length > 0,
+            "DecentralizedID: Operator required for predicate"
+        );
+        
+        requestId = nextRequestId++;
+        
+        requests[requestId] = Request({
+            requester: msg.sender,
+            recipient: recipient,
+            purpose: purpose,
+            requestType: requestType,
+            claimKey: claimKey,
+            operator: operator,
+            value: value,
+            status: RequestStatus.Pending,
+            responseData: "",
+            createdAt: block.timestamp,
+            respondedAt: 0
+        });
+        
+        userReceivedRequests[recipient].push(requestId);
+        companyRequests[msg.sender].push(requestId);
+        
+        emit RequestCreated(requestId, msg.sender, recipient, requestType, purpose);
+    }
+    
+    /**
+     * @notice Approve a request and provide response data
+     * @param requestId ID of the request to approve
+     * @param responseData Response data (e.g., "true" for predicate, actual value for direct)
+     */
+    function approveRequest(
+        uint256 requestId,
+        string memory responseData
+    ) external {
+        require(requestId < nextRequestId, "DecentralizedID: Invalid request ID");
+        Request storage request = requests[requestId];
+        
+        require(
+            msg.sender == request.recipient,
+            "DecentralizedID: Only recipient can respond"
+        );
+        require(
+            request.status == RequestStatus.Pending,
+            "DecentralizedID: Request already responded"
+        );
+        
+        request.status = RequestStatus.Approved;
+        request.responseData = responseData;
+        request.respondedAt = block.timestamp;
+        
+        emit RequestResponded(requestId, msg.sender, RequestStatus.Approved, responseData);
+    }
+    
+    /**
+     * @notice Reject a request
+     * @param requestId ID of the request to reject
+     */
+    function rejectRequest(uint256 requestId) external {
+        require(requestId < nextRequestId, "DecentralizedID: Invalid request ID");
+        Request storage request = requests[requestId];
+        
+        require(
+            msg.sender == request.recipient,
+            "DecentralizedID: Only recipient can respond"
+        );
+        require(
+            request.status == RequestStatus.Pending,
+            "DecentralizedID: Request already responded"
+        );
+        
+        request.status = RequestStatus.Rejected;
+        request.respondedAt = block.timestamp;
+        
+        emit RequestResponded(requestId, msg.sender, RequestStatus.Rejected, "");
     }
     
     // ==================== View Functions ====================
@@ -601,6 +752,107 @@ contract DecentralizedID {
         address company
     ) external view returns (CompanyInfo memory) {
         return companies[company];
+    }
+    
+    /**
+     * @notice Get a single request by ID
+     * @param requestId ID of the request
+     * @return Request struct
+     */
+    function getRequest(
+        uint256 requestId
+    ) external view returns (Request memory) {
+        require(requestId < nextRequestId, "DecentralizedID: Invalid request ID");
+        return requests[requestId];
+    }
+    
+    /**
+     * @notice Get all request IDs for a user (requests they received)
+     * @param user Address of the user
+     * @return Array of request IDs
+     */
+    function getUserReceivedRequestIds(
+        address user
+    ) external view returns (uint256[] memory) {
+        return userReceivedRequests[user];
+    }
+    
+    /**
+     * @notice Get all requests received by a user
+     * @param user Address of the user
+     * @return Array of Request structs
+     */
+    function getUserReceivedRequests(
+        address user
+    ) external view returns (Request[] memory) {
+        uint256[] memory requestIds = userReceivedRequests[user];
+        Request[] memory userReqs = new Request[](requestIds.length);
+        
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            userReqs[i] = requests[requestIds[i]];
+        }
+        
+        return userReqs;
+    }
+    
+    /**
+     * @notice Get all pending requests for a user
+     * @param user Address of the user
+     * @return Array of Request structs
+     */
+    function getUserPendingRequests(
+        address user
+    ) external view returns (Request[] memory) {
+        uint256[] memory requestIds = userReceivedRequests[user];
+        
+        // First pass: count pending requests
+        uint256 pendingCount = 0;
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            if (requests[requestIds[i]].status == RequestStatus.Pending) {
+                pendingCount++;
+            }
+        }
+        
+        // Second pass: collect pending requests
+        Request[] memory pendingReqs = new Request[](pendingCount);
+        uint256 index = 0;
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            if (requests[requestIds[i]].status == RequestStatus.Pending) {
+                pendingReqs[index] = requests[requestIds[i]];
+                index++;
+            }
+        }
+        
+        return pendingReqs;
+    }
+    
+    /**
+     * @notice Get all request IDs created by a company
+     * @param company Address of the company
+     * @return Array of request IDs
+     */
+    function getCompanyRequestIds(
+        address company
+    ) external view returns (uint256[] memory) {
+        return companyRequests[company];
+    }
+    
+    /**
+     * @notice Get all requests created by a company
+     * @param company Address of the company
+     * @return Array of Request structs
+     */
+    function getCompanyRequests(
+        address company
+    ) external view returns (Request[] memory) {
+        uint256[] memory requestIds = companyRequests[company];
+        Request[] memory companyReqs = new Request[](requestIds.length);
+        
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            companyReqs[i] = requests[requestIds[i]];
+        }
+        
+        return companyReqs;
     }
 }
 

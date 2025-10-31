@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createAppKit } from "@reown/appkit/react";
-import { mainnet, sepolia } from "@reown/appkit/networks";
 import React, { type ReactNode } from "react";
 import { WagmiProvider, type Config } from "wagmi";
-import { wagmiAdapter, projectId } from "@/config";
+import { wagmiAdapter, projectId, networks } from "@/config";
 
 const queryClient = new QueryClient();
 
@@ -21,8 +20,8 @@ const metadata = {
 createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-  networks: [mainnet, sepolia],
-  defaultNetwork: mainnet,
+  networks: networks,
+  defaultNetwork: networks[0], // Use hardhat local as default
   metadata,
   features: {
     analytics: true,

@@ -702,5 +702,202 @@ describe("DecentralizedID", function () {
       ).to.be.revertedWith("DecentralizedID: Schema not active");
     });
   });
+
+  describe("Request Functions", function () {
+    beforeEach(async function () {
+      await decentralizedID.addWhitelistedCompany(company1.address, "Company 1");
+      await decentralizedID.addWhitelistedCompany(company2.address, "Company 2");
+    });
+
+    describe("createRequest", function () {
+      it("Should create predicate request successfully", async function () {
+        await expect(
+          decentralizedID
+            .connect(company1)
+            .createRequest(
+              user1.address,
+              "Age verification",
+              0, // RequestType.Predicate
+              "age",
+              ">",
+              "18"
+            )
+        )
+          .to.emit(decentralizedID, "RequestCreated")
+          .withArgs(1, company1.address, user1.address, 0, "Age verification");
+
+        const request = await decentralizedID.getRequest(1);
+        expect(request.requester).to.equal(company1.address);
+        expect(request.recipient).to.equal(user1.address);
+        expect(request.requestType).to.equal(0); // Predicate
+        expect(request.claimKey).to.equal("age");
+        expect(request.operator).to.equal(">");
+        expect(request.value).to.equal("18");
+        expect(request.status).to.equal(0); // Pending
+      });
+
+      it("Should create direct request successfully", async function () {
+        await expect(
+          decentralizedID
+            .connect(company1)
+            .createRequest(
+              user1.address,
+              "Email access",
+              1, // RequestType.Direct
+              "email",
+              "",
+              ""
+            )
+        )
+          .to.emit(decentralizedID, "RequestCreated")
+          .withArgs(1, company1.address, user1.address, 1, "Email access");
+
+        const request = await decentralizedID.getRequest(1);
+        expect(request.requestType).to.equal(1); // Direct
+        expect(request.claimKey).to.equal("email");
+      });
+
+      it("Should revert if not whitelisted company", async function () {
+        await expect(
+          decentralizedID
+            .connect(user1)
+            .createRequest(user1.address, "purpose", 0, "age", ">", "18")
+        ).to.be.revertedWith("DecentralizedID: Only whitelisted companies");
+      });
+
+      it("Should revert if invalid recipient", async function () {
+        await expect(
+          decentralizedID
+            .connect(company1)
+            .createRequest(ethers.ZeroAddress, "purpose", 0, "age", ">", "18")
+        ).to.be.revertedWith("DecentralizedID: Invalid recipient");
+      });
+
+      it("Should revert if claim key is empty", async function () {
+        await expect(
+          decentralizedID
+            .connect(company1)
+            .createRequest(user1.address, "purpose", 0, "", ">", "18")
+        ).to.be.revertedWith("DecentralizedID: Claim key cannot be empty");
+      });
+
+      it("Should revert if predicate request without operator", async function () {
+        await expect(
+          decentralizedID
+            .connect(company1)
+            .createRequest(user1.address, "purpose", 0, "age", "", "18")
+        ).to.be.revertedWith("DecentralizedID: Operator required for predicate");
+      });
+    });
+
+    describe("approveRequest", function () {
+      let requestId: bigint;
+
+      beforeEach(async function () {
+        await decentralizedID
+          .connect(company1)
+          .createRequest(user1.address, "Age verification", 0, "age", ">", "18");
+        requestId = 1n;
+      });
+
+      it("Should approve request successfully", async function () {
+        await expect(
+          decentralizedID.connect(user1).approveRequest(requestId, "true")
+        )
+          .to.emit(decentralizedID, "RequestResponded")
+          .withArgs(requestId, user1.address, 1, "true"); // 1 = Approved
+
+        const request = await decentralizedID.getRequest(requestId);
+        expect(request.status).to.equal(1); // Approved
+        expect(request.responseData).to.equal("true");
+        expect(request.respondedAt).to.be.gt(0);
+      });
+
+      it("Should revert if not recipient tries to approve", async function () {
+        await expect(
+          decentralizedID.connect(user2).approveRequest(requestId, "true")
+        ).to.be.revertedWith("DecentralizedID: Only recipient can respond");
+      });
+
+      it("Should revert if already responded", async function () {
+        await decentralizedID.connect(user1).approveRequest(requestId, "true");
+        
+        await expect(
+          decentralizedID.connect(user1).approveRequest(requestId, "true")
+        ).to.be.revertedWith("DecentralizedID: Request already responded");
+      });
+    });
+
+    describe("rejectRequest", function () {
+      let requestId: bigint;
+
+      beforeEach(async function () {
+        await decentralizedID
+          .connect(company1)
+          .createRequest(user1.address, "Email access", 1, "email", "", "");
+        requestId = 1n;
+      });
+
+      it("Should reject request successfully", async function () {
+        await expect(
+          decentralizedID.connect(user1).rejectRequest(requestId)
+        )
+          .to.emit(decentralizedID, "RequestResponded")
+          .withArgs(requestId, user1.address, 2, ""); // 2 = Rejected
+
+        const request = await decentralizedID.getRequest(requestId);
+        expect(request.status).to.equal(2); // Rejected
+        expect(request.respondedAt).to.be.gt(0);
+      });
+
+      it("Should revert if not recipient tries to reject", async function () {
+        await expect(
+          decentralizedID.connect(user2).rejectRequest(requestId)
+        ).to.be.revertedWith("DecentralizedID: Only recipient can respond");
+      });
+
+      it("Should revert if already responded", async function () {
+        await decentralizedID.connect(user1).rejectRequest(requestId);
+        
+        await expect(
+          decentralizedID.connect(user1).rejectRequest(requestId)
+        ).to.be.revertedWith("DecentralizedID: Request already responded");
+      });
+    });
+
+    describe("View Functions for Requests", function () {
+      beforeEach(async function () {
+        await decentralizedID
+          .connect(company1)
+          .createRequest(user1.address, "Request 1", 0, "age", ">", "18");
+        await decentralizedID
+          .connect(company1)
+          .createRequest(user1.address, "Request 2", 1, "email", "", "");
+        await decentralizedID
+          .connect(company2)
+          .createRequest(user2.address, "Request 3", 0, "age", ">", "21");
+      });
+
+      it("Should get user received requests", async function () {
+        const requests = await decentralizedID.getUserReceivedRequests(user1.address);
+        expect(requests.length).to.equal(2);
+        expect(requests[0].requester).to.equal(company1.address);
+        expect(requests[1].requester).to.equal(company1.address);
+      });
+
+      it("Should get user pending requests only", async function () {
+        await decentralizedID.connect(user1).approveRequest(1, "true");
+        
+        const pendingRequests = await decentralizedID.getUserPendingRequests(user1.address);
+        expect(pendingRequests.length).to.equal(1);
+        expect(pendingRequests[0].purpose).to.equal("Request 2");
+      });
+
+      it("Should get company requests", async function () {
+        const companyReqs = await decentralizedID.getCompanyRequests(company1.address);
+        expect(companyReqs.length).to.equal(2);
+      });
+    });
+  });
 });
 
