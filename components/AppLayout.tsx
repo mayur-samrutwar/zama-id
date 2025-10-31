@@ -52,20 +52,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen text-zinc-900" style={{ backgroundColor: "#FCFCFD" }}>
       {/* Top Header Bar */}
-      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="mx-auto flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-8">
+      <header className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60" style={{ borderColor: "#E4E7EC" }}>
+        <div className="mx-auto flex h-20 items-center justify-between px-8">
+          <div className="flex items-center">
             <Link href="/app" className="flex items-center gap-2">
               <span className="text-xl font-semibold tracking-tight text-zinc-900">Zama ID</span>
             </Link>
-            <div className="hidden md:flex relative">
-              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-              <input
-                type="text"
-                placeholder="Search attestations, requests..."
-                className="w-[28rem] rounded-full border border-zinc-200 bg-white pl-11 pr-5 py-2 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-400 focus:outline-none"
-              />
-            </div>
+          </div>
+          <div className="hidden md:flex relative flex-1 justify-center">
+            <input
+              type="text"
+              placeholder="Search attestations, requests..."
+              className="w-[32rem] rounded-full border bg-white px-5 py-2.5 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-300 focus:outline-none"
+              style={{ borderColor: "#E4E7EC" }}
+            />
           </div>
           <div className="flex items-center gap-4">
             <WalletButton />
@@ -75,7 +75,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       <div className="flex">
         {/* Left Sidebar */}
-        <aside className="sticky top-16 h-[calc(100vh-4rem)] w-72 border-r border-zinc-200 overflow-y-auto" style={{ backgroundColor: "#FCFCFD" }}>
+        <aside className="sticky top-20 h-[calc(100vh-5rem)] w-72 border-r overflow-y-auto" style={{ backgroundColor: "#FCFCFD", borderColor: "#E4E7EC" }}>
           <nav className="p-6 space-y-3">
             {navItems.map((item) => (
               <NavLink
