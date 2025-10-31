@@ -1,8 +1,24 @@
 import Layout from "@/components/Layout";
 import PageHeader from "@/components/PageHeader";
-import Card, { CardBody } from "@/components/Card";
+import Card, { CardBody, CardHeader } from "@/components/Card";
 import Input from "@/components/Input";
 import Button from "@/components/Button";
+import Table from "@/components/Table";
+import Badge from "@/components/Badge";
+
+type Credential = {
+  id: string;
+  type: string;
+  issuer: string;
+  issuedAt: string;
+  status: "valid" | "revoked" | "pending";
+};
+
+const sampleCredentials: Credential[] = [
+  { id: "att-001", type: "Age", issuer: "Civic Org", issuedAt: "2025-10-20", status: "valid" },
+  { id: "att-002", type: "KYC", issuer: "Acme Bank", issuedAt: "2025-10-18", status: "pending" },
+  { id: "att-003", type: "Email", issuer: "Mail Provider", issuedAt: "2025-10-12", status: "valid" },
+];
 
 export default function ProfilePage() {
   return (
@@ -39,6 +55,28 @@ export default function ProfilePage() {
           </CardBody>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader title="Your Credentials" description="All attestations linked to your profile." />
+        <CardBody>
+          <Table
+            columns={[
+              { header: "ID", render: (r: Credential) => r.id },
+              { header: "Type", render: (r: Credential) => r.type },
+              { header: "Issuer", render: (r: Credential) => r.issuer },
+              { header: "Issued", render: (r: Credential) => new Date(r.issuedAt).toLocaleDateString() },
+              {
+                header: "Status",
+                render: (r: Credential) => (
+                  <Badge tone={r.status === "valid" ? "success" : r.status === "pending" ? "warning" : "danger"}>{r.status}</Badge>
+                ),
+              },
+            ]}
+            data={sampleCredentials}
+            empty={<div>No credentials yet</div>}
+          />
+        </CardBody>
+      </Card>
     </Layout>
   );
 }
