@@ -65,7 +65,7 @@ export default function IssueAttestationPage() {
     if (!walletAddress || !claimKey || !claimValue) return;
     
     const data = JSON.stringify({ [claimKey]: claimValue });
-    const expiresAt = validUntil ? BigInt(Math.floor(new Date(validUntil).getTime() / 1000)) : 0n;
+    const expiresAt = validUntil ? BigInt(Math.floor(new Date(validUntil).getTime() / 1000)) : BigInt(0);
     
     issueAttestation(
       walletAddress as `0x${string}`,

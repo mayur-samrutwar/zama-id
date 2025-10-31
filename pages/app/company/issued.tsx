@@ -65,7 +65,7 @@ export default function IssuedAttestationsPage() {
         const now = Math.floor(Date.now() / 1000);
         const status: "valid" | "revoked" | "pending" = att.isRevoked
           ? "revoked"
-          : att.expiresAt && BigInt(att.expiresAt) !== 0n && BigInt(att.expiresAt) < BigInt(now)
+          : att.expiresAt && BigInt(att.expiresAt) !== BigInt(0) && BigInt(att.expiresAt) < BigInt(now)
           ? "pending"
           : "valid";
 

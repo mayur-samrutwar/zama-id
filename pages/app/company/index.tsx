@@ -24,7 +24,7 @@ export default function CompanyPage() {
     const thisMonthStart = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000);
 
     const active = attestations.filter(
-      (att: any) => !att.isRevoked && (att.expiresAt === 0n || BigInt(att.expiresAt) > BigInt(now))
+      (att: any) => !att.isRevoked && (att.expiresAt === BigInt(0) || BigInt(att.expiresAt) > BigInt(now))
     ).length;
 
     const thisMonth = attestations.filter((att: any) => Number(att.issuedAt) >= thisMonthStart).length;
@@ -100,17 +100,17 @@ export default function CompanyPage() {
                 <div className="text-sm text-zinc-600">Company Address</div>
                 <div className="mt-1 text-sm font-mono text-zinc-900">{formatAddress(address)}</div>
               </div>
-              {companyInfo && companyInfo.metadata && (
+              {companyInfo && Array.isArray(companyInfo) === false && typeof companyInfo === 'object' && companyInfo !== null && 'metadata' in companyInfo && (
                 <div>
                   <div className="text-sm text-zinc-600">Metadata</div>
-                  <div className="mt-1 text-base font-medium text-zinc-900">{companyInfo.metadata}</div>
+                  <div className="mt-1 text-base font-medium text-zinc-900">{String((companyInfo as any).metadata || '')}</div>
                 </div>
               )}
               <div>
                 <div className="text-sm text-zinc-600">Status</div>
                 <div className="mt-1">
                   <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                    {companyInfo?.isActive ? "Active" : "Inactive"}
+                    {companyInfo && Array.isArray(companyInfo) === false && typeof companyInfo === 'object' && companyInfo !== null && 'isActive' in companyInfo && (companyInfo as any).isActive ? "Active" : "Inactive"}
                   </span>
                 </div>
               </div>

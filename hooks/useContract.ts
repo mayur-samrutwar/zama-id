@@ -178,7 +178,7 @@ export function useIssueAttestation() {
     recipient: `0x${string}`,
     schemaId: bigint,
     data: string,
-    expiresAt: bigint = 0n
+    expiresAt: bigint = BigInt(0)
   ) => {
     writeContract({
       ...DECENTRALIZED_ID_CONFIG,
