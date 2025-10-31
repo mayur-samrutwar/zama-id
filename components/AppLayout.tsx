@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactNode } from "react";
+import { LayoutDashboard, ShieldCheck, Inbox, Search, User, Search as SearchIcon } from "lucide-react";
 import WalletButton from "./WalletButton";
 
 type AppLayoutProps = {
@@ -10,29 +11,29 @@ type AppLayoutProps = {
 type NavItem = {
   href: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
 };
 
 const navItems: NavItem[] = [
-  { href: "/app", label: "Dashboard", icon: "⧉" },
-  { href: "/app/attestations", label: "Mine", icon: "○" },
-  { href: "/app/requests", label: "Incoming", icon: "○" },
-  { href: "/app/verify", label: "Verify", icon: "○" },
-  { href: "/app/profile", label: "Settings", icon: "○" },
+  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/app/attestations", label: "Attestations", icon: ShieldCheck },
+  { href: "/app/requests", label: "Requests", icon: Inbox },
+  { href: "/app/verify", label: "Verify", icon: Search },
+  { href: "/app/profile", label: "Profile", icon: User },
 ];
 
-function NavLink({ href, label, icon, isActive }: NavItem & { isActive: boolean }) {
+function NavLink({ href, label, icon: Icon, isActive }: NavItem & { isActive: boolean }) {
   return (
     <Link
       href={href}
       className={
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors " +
+        "flex items-center gap-4 rounded-lg px-4 py-3 text-base font-medium transition-colors " +
         (isActive
           ? "bg-zinc-100 text-zinc-900"
           : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900")
       }
     >
-      <span className="text-base">{icon}</span>
+      <Icon className="h-5 w-5" />
       {label}
     </Link>
   );
@@ -50,11 +51,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Link href="/app" className="flex items-center gap-2">
               <span className="text-xl font-semibold tracking-tight text-zinc-900">Zama ID</span>
             </Link>
-            <div className="hidden md:flex">
+            <div className="hidden md:flex relative">
+              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
               <input
                 type="text"
                 placeholder="Search attestations, requests..."
-                className="w-[28rem] rounded-full border border-zinc-200 bg-white px-5 py-2 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-400 focus:outline-none"
+                className="w-[28rem] rounded-full border border-zinc-200 bg-white pl-11 pr-5 py-2 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-400 focus:outline-none"
               />
             </div>
           </div>
@@ -66,8 +68,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       <div className="flex">
         {/* Left Sidebar */}
-        <aside className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r border-zinc-200 bg-white overflow-y-auto">
-          <nav className="p-3 space-y-1">
+        <aside className="sticky top-16 h-[calc(100vh-4rem)] w-72 border-r border-zinc-200 bg-white overflow-y-auto">
+          <nav className="p-6 space-y-3">
             {navItems.map((item) => (
               <NavLink
                 key={item.href}
