@@ -25,8 +25,7 @@ export default function AttestationsPage() {
     <AppLayout>
       <PageHeader
         title="Attestations"
-        subtitle="Browse, filter, and manage your attestations."
-        actions={<Link href="/app/attestations/new"><Button variant="success">New Attestation</Button></Link>}
+        subtitle="Your received attestations and credentials."
       />
 
       {data.length === 0 ? (

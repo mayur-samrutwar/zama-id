@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactNode } from "react";
-import { LayoutDashboard, ShieldCheck, Inbox, Search, User, Search as SearchIcon } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, Inbox, Search, User, Search as SearchIcon, Building2, Users, FileCheck, PlusCircle } from "lucide-react";
 import WalletButton from "./WalletButton";
 
 type AppLayoutProps = {
@@ -20,6 +20,13 @@ const navItems: NavItem[] = [
   { href: "/app/requests", label: "Requests", icon: Inbox },
   { href: "/app/verify", label: "Verify", icon: Search },
   { href: "/app/profile", label: "Profile", icon: User },
+];
+
+const companyNavItems: NavItem[] = [
+  { href: "/app/company", label: "Company", icon: Building2 },
+  { href: "/app/company/issue", label: "Issue Attestation", icon: PlusCircle },
+  { href: "/app/company/issued", label: "Issued Attestations", icon: FileCheck },
+  { href: "/app/company/whitelist", label: "Whitelist", icon: Users },
 ];
 
 function NavLink({ href, label, icon: Icon, isActive }: NavItem & { isActive: boolean }) {
@@ -74,9 +81,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <NavLink
                 key={item.href}
                 {...item}
-                isActive={router.pathname === item.href || (item.href !== "/app" && router.pathname.startsWith(item.href))}
+                isActive={router.pathname === item.href || (item.href !== "/app" && router.pathname.startsWith(item.href + "/"))}
               />
             ))}
+            <div className="pt-6 mt-6 border-t border-zinc-200">
+              <div className="px-4 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Organization</div>
+              {companyNavItems.map((item) => (
+                <NavLink
+                  key={item.href}
+                  {...item}
+                  isActive={
+                    router.pathname === item.href || 
+                    (item.href !== "/app/company" && item.href !== "/app" && router.pathname.startsWith(item.href + "/"))
+                  }
+                />
+              ))}
+            </div>
           </nav>
         </aside>
 
