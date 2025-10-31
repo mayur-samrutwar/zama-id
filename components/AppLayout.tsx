@@ -50,7 +50,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
+    <div className="min-h-screen text-zinc-900" style={{ backgroundColor: "#FCFCFD" }}>
       {/* Top Header Bar */}
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="mx-auto flex h-16 items-center justify-between px-6">
@@ -75,7 +75,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       <div className="flex">
         {/* Left Sidebar */}
-        <aside className="sticky top-16 h-[calc(100vh-4rem)] w-72 border-r border-zinc-200 bg-white overflow-y-auto">
+        <aside className="sticky top-16 h-[calc(100vh-4rem)] w-72 border-r border-zinc-200 overflow-y-auto" style={{ backgroundColor: "#FCFCFD" }}>
           <nav className="p-6 space-y-3">
             {navItems.map((item) => (
               <NavLink
@@ -101,7 +101,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 bg-white">
+        <main className="flex-1" style={{ backgroundColor: "#FCFCFD" }}>
           <div className="mx-auto max-w-7xl px-8 py-10">{children}</div>
         </main>
       </div>
